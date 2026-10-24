@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UGI Leaderboard Explorer</title>
+<style>
+:root{
+  --bg:#f6f6f3;--panel:#ffffff;--ink:#1b1b1a;--muted:#6b6b66;--line:#e2e1dc;--hover:#f0efea;
+  --accent:#2f5bd3;--accent-soft:#e7ecfb;--bar:rgba(47,91,211,.15);
+  --s1:#2f5bd3;--s2:#d9622b;--good:#1f8a4c;--warn:#b45309;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#131312;--panel:#1b1b1a;--ink:#ecebe6;--muted:#9b9a94;--line:#2d2d2b;--hover:#252523;
+  --accent:#8aa5f7;--accent-soft:#232a40;--bar:rgba(138,165,247,.2);
+  --s1:#8aa5f7;--s2:#f0915c;--good:#4ade80;--warn:#fbbf24;
+}}
+:root[data-theme="dark"]{
+  --bg:#131312;--panel:#1b1b1a;--ink:#ecebe6;--muted:#9b9a94;--line:#2d2d2b;--hover:#252523;
+  --accent:#8aa5f7;--accent-soft:#232a40;--bar:rgba(138,165,247,.2);
+  --s1:#8aa5f7;--s2:#f0915c;--good:#4ade80;--warn:#fbbf24;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{flex:1;min-width:0}
+h1{font-size:16px;margin:0;font-weight:650;letter-spacing:-.01em}
+.tag{font-size:12px;color:var(--muted);margin-top:2px}
+.status{font-size:12px;color:var(--muted)} .status.err{color:#c2410c}
+input,select,button{font:inherit;font-size:13px;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;height:30px}
+input[type=number]{width:76px} input[type=search]{width:260px;max-width:100%} input[type=date]{width:140px}
+input[type=checkbox]{height:auto;margin:0;accent-color:var(--accent)}
+button{cursor:pointer} button:hover:not(:disabled){border-color:var(--muted)} button:disabled{opacity:.5;cursor:default}
+button.on{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+label{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.toolbar,.viewbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.viewbar{background:var(--bg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;height:28px}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.count{font-size:12px;color:var(--muted);margin-left:auto}
+.spacer{flex:1}
+#arch,#author,#ideo{max-width:220px}
+
+/* filter panel */
+.filters{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px 12px;display:flex;flex-direction:column;gap:10px;max-height:45vh;overflow:auto}
+.frow{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:4px}
+.f>span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.f .inl{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--line);border-radius:15px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none}
+.chip:has(input:checked){background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+#conds{display:flex;flex-direction:column;gap:6px}
+.cond{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cond select.c-col{max-width:240px}
+.hint{font-size:12px;color:var(--muted)}
+
+#pager{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.pick{position:relative}
+.pop{position:absolute;top:34px;left:0;z-index:30;width:300px;max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.pop input{width:100%;margin-bottom:6px}
+.pop .acts{display:flex;gap:6px;margin-bottom:6px}
+.pop label{display:flex;padding:3px 2px;color:var(--ink);cursor:pointer}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+.wrap{flex:1;min-height:0;overflow:auto}
+table{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%}
+th,td{padding:5px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+th{position:sticky;top:0;z-index:2;background:var(--panel);font-size:12px;font-weight:600;cursor:pointer;user-select:none;
+  max-width:150px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+th:hover{color:var(--accent)} th.sorted{color:var(--accent);box-shadow:inset 0 -2px var(--accent)}
+th .dir{font-weight:400;color:var(--muted);font-size:10px;display:block}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.bar{background-image:linear-gradient(90deg,var(--bar) var(--p),transparent var(--p))}
+td.b{text-align:center} .dim{color:var(--muted)}
+.rank{position:sticky;left:0;z-index:1;background:var(--panel);color:var(--muted);min-width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.name{position:sticky;left:46px;z-index:1;background:var(--panel);max-width:380px;overflow:hidden;text-overflow:ellipsis;border-right:1px solid var(--line)}
+th.rank,th.name{z-index:3}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background-color:var(--hover)}
+tbody tr.sel td{background-color:var(--accent-soft)}
+.au{color:var(--muted)}
+.ext{margin-left:6px;font-size:11px}
+
+/* logos */
+.logo{width:18px;height:18px;border-radius:4px;object-fit:cover;vertical-align:-4px;margin-right:8px;background:var(--line);display:inline-block;flex:none}
+.logo.lg{width:40px;height:40px;border-radius:8px;margin:0}
+.logo.sm{width:16px;height:16px;margin-right:6px}
+.ini{display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;letter-spacing:0;
+  background:hsl(var(--h) 45% 45%);vertical-align:-4px}
+.logo.lg.ini{font-size:15px}
+
+.plot{flex:1;min-height:0;position:relative}
+#cv{position:absolute;inset:0}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.15);max-width:320px;z-index:5}
+.tip b{display:flex;align-items:center;margin-bottom:2px;word-break:break-all}
+.legend{display:inline-flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.dot.a{background:var(--s1)} .dot.b{background:var(--s2)}
+.msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted);text-align:center;padding:24px}
+
+/* detail drawer */
+aside{position:fixed;top:0;right:0;height:100dvh;width:min(500px,100vw);background:var(--panel);border-left:1px solid var(--line);
+  transform:translateX(100%);transition:transform .18s ease;z-index:40;display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(0,0,0,.12)}
+aside.open{transform:none}
+.dh{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);align-items:flex-start}
+.dh .t{flex:1;min-width:0}
+#dName{font-weight:650;word-break:break-all;margin-bottom:2px}
+#dMeta{font-size:12px;color:var(--muted);margin-bottom:4px}
+.dh a{font-size:12px}
+.db{overflow:auto;padding:4px 16px 24px}
+.db h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 6px}
+.kv{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 84px;gap:10px;align-items:start;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.kv .k{min-width:0}
+.kv .k b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kv .k small{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:1px}
+.kv .v{font-variant-numeric:tabular-nums;word-break:break-word}
+.kv .r{font-size:11px;color:var(--muted);text-align:right}
+.meter{height:4px;border-radius:2px;background:var(--line);margin-top:4px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+
+/* about dialog */
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:0;width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 48px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.ab-h{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+.ab-h h2{margin:0;font-size:17px}
+.ab{padding:4px 20px 24px;line-height:1.55}
+.ab h3{font-size:14px;margin:20px 0 6px}
+.ab p{margin:6px 0}
+.ab ul{margin:6px 0;padding-left:20px}
+.ab li{margin:3px 0}
+.ab table{font-size:12.5px;width:100%;margin-top:6px}
+.ab td,.ab th{white-space:normal;position:static;cursor:default;vertical-align:top;max-width:none}
+.ab th{background:none;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.ab td:first-child{font-weight:500;white-space:nowrap}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;background:var(--hover);color:var(--muted);white-space:nowrap}
+.pill.up{color:var(--good)} .pill.down{color:var(--good)} .pill.tgt{color:var(--warn)}
+
+@media (max-width:700px){
+  input[type=search]{width:100%}
+  .name{max-width:180px}
+  .count{margin-left:0;width:100%}
+  .tag{display:none}
+  .kv{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 70px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>UGI Leaderboard Explorer</h1>
+    <div class="tag">Browse the Uncensored General Intelligence leaderboard. The data loads live from Hugging Face each time this page opens.</div>
+  </div>
+  <span id="status" class="status">Loading…</span>
+  <button id="aboutBtn" title="What the scores mean">ⓘ About the data</button>
+  <button id="reload" title="Fetch the CSV again from Hugging Face">↻ Reload</button>
+</header>
+
+<div class="toolbar">
+  <div class="seg"><button data-tab="table" aria-pressed="true">Table</button><button data-tab="scatter" aria-pressed="false">Scatter</button></div>
+  <input id="q" type="search" placeholder="Search model, author or architecture  ( / )">
+  <button id="fBtn" class="on">Filters</button>
+  <button id="clear">Clear filters</button>
+  <span class="count" id="count"></span>
+</div>
+
+<section class="filters" id="filters">
+  <div class="frow">
+    <div class="f"><span>Model type</span>
+      <div class="chips" id="types">
+        <label class="chip" title="Original base models (not merges) with a published size"><input type="checkbox" value="base" checked> Base</label>
+        <label class="chip" title="Fine-tuned versions of other models (not merges)"><input type="checkbox" value="finetune" checked> Finetune</label>
+        <label class="chip" title="Models made by merging several models"><input type="checkbox" value="merge" checked> Merge</label>
+        <label class="chip" title="API-only models with no published parameter count"><input type="checkbox" value="proprietary" checked> Proprietary</label>
+      </div>
+    </div>
+    <div class="f"><span>Reasoning</span>
+      <select id="think"><option value="all">Any</option><option value="yes">Thinking models only</option><option value="no">Non-thinking only</option></select>
+    </div>
+    <div class="f"><span>Author / organisation</span><select id="author"><option value="">All authors</option></select></div>
+    <div class="f"><span>Architecture</span><select id="arch"><option value="">All architectures</option></select></div>
+    <div class="f"><span>12axes ideology</span><select id="ideo"><option value="">All ideologies</option></select></div>
+  </div>
+  <div class="frow">
+    <div class="f"><span>Total params (B)</span>
+      <div class="inl"><input id="pmin" type="number" min="0" placeholder="min"> – <input id="pmax" type="number" min="0" placeholder="max"></div>
+    </div>
+    <div class="f"><span>Released</span>
+      <div class="inl"><input id="dfrom" type="date" title="Released on or after"> – <input id="dto" type="date" title="Released on or before"></div>
+    </div>
+    <div class="f"><span>Min UGI 🏆</span><input id="mUGI" type="number" step="any" placeholder="any"></div>
+    <div class="f"><span>Min W/10 👍</span><input id="mW10" type="number" step="any" min="0" max="10" placeholder="0–10"></div>
+    <div class="f"><span>Min NatInt 💡</span><input id="mNat" type="number" step="any" placeholder="any"></div>
+    <div class="f"><span>Min Writing ✍️</span><input id="mWri" type="number" step="any" placeholder="any"></div>
+    <div class="f"><span>Political lean (%)</span>
+      <div class="inl"><input id="lmin" type="number" step="any" placeholder="-100"> – <input id="lmax" type="number" step="any" placeholder="100"></div>
+    </div>
+  </div>
+  <div class="f"><span>Custom conditions <span class="hint" style="text-transform:none;letter-spacing:0">— filter on any column</span></span>
+    <div id="conds"></div>
+    <div><button id="addCond">+ Add condition</button></div>
+  </div>
+</section>
+
+<div class="viewbar" id="vb-table">
+  <label>Columns <select id="group"></select></label>
+  <div class="pick">
+    <button id="pickBtn">Pick columns…</button>
+    <div id="pick" class="pop" hidden>
+      <input id="pickQ" type="search" placeholder="Filter columns">
+      <div class="acts"><button id="pickAll">All</button><button id="pickNone">None</button></div>
+      <div id="pickList"></div>
+    </div>
+  </div>
+  <label>Rows <select id="ps"><option>50</option><option selected>100</option><option>250</option><option value="0">All</option></select></label>
+  <button id="export">Export filtered CSV</button>
+  <span class="spacer"></span>
+  <span id="pager"></span>
+</div>
+
+<div class="viewbar" id="vb-scatter" hidden>
+  <label>X <select id="sx"></select></label><label><input type="checkbox" id="lx"> log</label>
+  <label>Y <select id="sy"></select></label><label><input type="checkbox" id="ly"> log</label>
+  <span class="legend"><span><i class="dot a"></i>Non-thinking</span><span><i class="dot b"></i>Thinking</span></span>
+  <span class="spacer"></span>
+  <span class="count" id="pcount"></span>
+</div>
+
+<main>
+  <div class="wrap" id="tableView"><table id="tbl"></table></div>
+  <div class="plot" id="scatterView" hidden><canvas id="cv"></canvas><div id="tip" class="tip" hidden></div></div>
+  <div id="msg" class="msg">Fetching leaderboard data…</div>
+</main>
+
+<aside id="detail" aria-hidden="true">
+  <div class="dh">
+    <span id="dLogo"></span>
+    <div class="t"><div id="dName"></div><div id="dMeta"></div><a id="dLink" target="_blank" rel="noopener">Open model page ↗</a></div>
+    <button id="dClose" title="Close (Esc)">✕</button>
+  </div>
+  <div class="db" id="dBody"></div>
+</aside>
+
+<dialog id="about">
+  <div class="ab-h"><h2>About the data</h2><button id="abClose" title="Close (Esc)">✕</button></div>
+  <div class="ab">
+    <p>The <a href="https://huggingface.co/spaces/DontPlanToEnd/UGI-Leaderboard" target="_blank" rel="noopener">UGI Leaderboard</a>, run by DontPlanToEnd on Hugging Face, tests language models on how much they know about sensitive and niche subjects and how willing they are to engage with them. It also scores general intelligence, creative writing and political lean. The test questions are private, so models can't be trained on the benchmark itself.</p>
+    <p>This page downloads the leaderboard's raw CSV from <a id="srcLink" target="_blank" rel="noopener"></a> every time it opens or you press <b>Reload</b>. It never stores its own copy, so you always see the current data.</p>
+
+    <h3>The five headline scores</h3>
+    <ul>
+      <li><b>UGI 🏆 (Uncensored General Intelligence)</b> combines knowledge of sensitive topics (<i>Hazardous</i>, <i>Entertainment</i>, <i>SocPol</i>) with willingness to answer controversial prompts (W/10). Higher means more knowledgeable and less censored.</li>
+      <li><b>W/10 👍 (Willingness, 0–10)</b> measures how far a model can be pushed before it refuses or stops following instructions. It splits into <i>Direct</i> (outright refusals) and <i>Adherence</i> (drifting away from the instructions).<br>
+        <span class="hint">A model with high UGI but low W/10 knows a lot about sensitive topics but treats them as educational and won't shape that knowledge into something against its values.</span></li>
+      <li><b>NatInt 💡 (Natural Intelligence)</b> covers general knowledge and reasoning: <i>Textbook</i> facts, <i>Pop Culture</i> detail, and <i>World Model</i> tasks such as estimating recipe amounts, object weights, locations, song attributes and TV-show ratings.</li>
+      <li><b>Writing ✍️</b> is a creative-writing score built from intelligence, style, repetition and how well the model hits a requested length, tuned to average human preference. It is blank for models that can't write reliably (broken output, endless repetition or constant refusals).</li>
+      <li><b>Political Lean 📋</b> comes from the <a href="https://politicaltests.github.io/12axes/" target="_blank" rel="noopener">12axes</a> political test and runs from −100% (left) to +100% (right). <i>12axes Ideology</i> is the closest-matching ideology.</li>
+    </ul>
+
+    <h3>Model types</h3>
+    <ul>
+      <li><b>Base</b>: an original foundation model, not a merge, with a published size.</li>
+      <li><b>Finetune</b>: a further-trained version of another model.</li>
+      <li><b>Merge</b>: built by combining the weights of several models.</li>
+      <li><b>Proprietary</b>: an API-only model with no published parameter count, such as GPT, Claude, Gemini or Grok.</li>
+      <li><b>Thinking</b> models produce a reasoning trace before answering. Some appear twice, with reasoning on and off.</li>
+    </ul>
+
+    <h3>Using this page</h3>
+    <ul>
+      <li>Click a column header to sort. Columns where lower is better sort lowest-first on the first click.</li>
+      <li>Click a row to see every metric for that model, with its rank and a short explanation of each column.</li>
+      <li>Under <b>Filters</b> you can set quick limits or add a custom condition on any column, such as "Avg Thinking Chars ≤ 5000".</li>
+      <li><b>Scatter</b> plots any two numeric columns against each other. Hover a point to identify it, and click it for its details.</li>
+      <li>Each logo is the publisher's Hugging Face avatar, taken from the author in the model name. Coloured initials appear when an account has no avatar.</li>
+    </ul>
+
+    <h3>Column guide</h3>
+    <div id="glossary"></div>
+  </div>
+</dialog>
+
+<script>
+const SRC = 'https://huggingface.co/spaces/DontPlanToEnd/UGI-Leaderboard/raw/main/ugi-leaderboard-data.csv';
+
+// Column groups. Names that are missing from the CSV are skipped, so upstream changes don't break the page.
+const GROUPS = {
+  'Overview': ['UGI 🏆', 'W/10 👍', 'NatInt 💡', 'Writing ✍️', 'Political Lean 📋', '12axes Ideology',
+               'Total Parameters', 'Active Parameters', 'Is Thinking Model', 'Release Date'],
+  'Uncensored (UGI)': ['UGI 🏆', 'UGI non-W/10', 'Sensitive Info', 'Hazardous', 'Entertainment', 'SocPol',
+                       'W/10 👍', 'W/10-Direct', 'W/10-Adherence'],
+  'Intelligence': ['NatInt 💡', 'Textbook', 'Pop Culture', 'World Model', /^wm_/, /^Show Rec/],
+  'Writing': ['Writing ✍️', 'avg_writing_style_score', 'originality_score', 'avg_nsfw_score', 'avg_dark_score',
+              'Dialogue_Percentage', 'Verb_to_Noun_Ratio', 'Adjective_Adverb_Percentage', 'Readability_Grade_Level',
+              'avg_length_error_pct', 'creative_writing_wc_exceeded_pct', 'internal_semantic_redundancy',
+              'lexical_stuckness', 'Repetition Interrupts', 'Avg Thinking Chars'],
+  'Politics': [{range: ['Political Lean 📋', '12axes Ideology']}],
+  'Model info': ['Release Date', 'Test Date', 'Architecture', 'Prompt Template', 'Total Parameters', 'Active Parameters',
+                 '#P', 'Is Foundation', 'Is Finetuned', 'Is Merged', 'Is Thinking Model'],
+};
+
+// What each column means. dir: 1 = higher is better, -1 = lower is better, {target} = best near a value, absent = neutral.
+// Descriptions follow the leaderboard's own "About the Benchmarks" notes.
+const INFO = {
+  'UGI 🏆': {d: 'Uncensored General Intelligence: knowledge of sensitive topics combined with willingness to answer controversial prompts.', dir: 1},
+  'UGI non-W/10': {d: 'UGI without the willingness (W/10) part, so knowledge of sensitive topics only.', dir: 1},
+  'Sensitive Info': {d: 'Overall knowledge of sensitive information (Hazardous, Entertainment and SocPol together).', dir: 1},
+  'Hazardous': {d: "Knowledge of topics LLMs usually shouldn't help with.", dir: 1},
+  'Entertainment': {d: 'Knowledge of adult or controversial entertainment and media.', dir: 1},
+  'SocPol': {d: 'Knowledge of sensitive social and political topics.', dir: 1},
+  'W/10 👍': {d: 'Willingness out of 10: how far the model can be pushed before it refuses or deviates from instructions.', dir: 1},
+  'W/10-Direct': {d: 'Willingness part that checks whether the model refuses outright.', dir: 1},
+  'W/10-Adherence': {d: 'Willingness part that checks whether the model drifts from instructions (a soft refusal, or weak instruction following).', dir: 1},
+  'NatInt 💡': {d: 'Natural Intelligence: general knowledge and reasoning across standard and specialised domains.', dir: 1},
+  'Textbook': {d: 'Standard factual knowledge such as history, statistics, maths and logic.', dir: 1},
+  'Pop Culture': {d: 'Detailed knowledge of video games, films, music and internet culture.', dir: 1},
+  'World Model': {d: 'Understanding of real-world properties and patterns (cooking, geography, weights, music, show ratings).', dir: 1},
+  'wm_recipe_percent_error': {d: 'Cooking: % error when predicting the ingredient amounts a recipe needs.', dir: -1},
+  'wm_geoguesser_mae': {d: 'GeoGuesser: distance error in km when locating a place from a description of its surroundings.', dir: -1},
+  'wm_weight_percent_error': {d: 'Weight: % error when estimating the weight of described objects.', dir: -1},
+  'wm_music_mae': {d: "Music: error when predicting a song's attributes (BPM, loudness…) from its lyrics.", dir: -1},
+  'Show Rec Score': {d: "Show recommendation: predicting how a person will rate a TV show (out of 10) from their earlier ratings.", dir: 1},
+  'Show Rec MAE': {d: 'Show recommendation: mean absolute error between predicted and true ratings.', dir: -1},
+  'Show Rec Correlation': {d: 'Show recommendation: how well predictions trend with the true ratings.', dir: 1},
+  'Show Rec Std Dev Error': {d: 'Show recommendation: difference between the spread of predicted and true ratings.', dir: -1},
+  'Writing ✍️': {d: 'Creative-writing score from intelligence, style, repetition and length adherence, tuned to average human preference. Blank when the model cannot write reliably.', dir: 1},
+  'avg_nsfw_score': {d: 'How often creative writing heads toward explicit (NSFW) content. Measures frequency, not quality.'},
+  'avg_dark_score': {d: 'How often creative writing heads toward a dark, violent or tragic tone. Measures frequency, not quality.'},
+  'avg_writing_style_score': {d: 'Style adherence: how closely the model can match the style of an example text.', dir: 1},
+  'Readability_Grade_Level': {d: 'US school grade needed to read the text. The Writing score prefers about 5.5.', dir: {target: 5.5}},
+  'Verb_to_Noun_Ratio': {d: 'Ratio of action words (verbs) to naming words (nouns).'},
+  'Adjective_Adverb_Percentage': {d: 'Share of words that are adjectives or adverbs. The Writing score prefers about 13.5%.', dir: {target: 13.5}},
+  'Dialogue_Percentage': {d: 'Share of story sentences that are dialogue. The Writing score prefers about 60%.', dir: {target: 60}},
+  'lexical_stuckness': {d: 'How much the model gets stuck on a narrow vocabulary in parts of its writing.', dir: -1},
+  'originality_score': {d: 'How different the outputs are from each other across writing prompts (word use and themes).', dir: 1},
+  'internal_semantic_redundancy': {d: 'How often the same idea is repeated in different words.', dir: -1},
+  'avg_length_error_pct': {d: 'Average % difference between the requested and the produced word count.', dir: -1},
+  'creative_writing_wc_exceeded_pct': {d: '% of responses that were longer than the requested word count.'},
+  'Repetition Interrupts': {d: 'Number of times a response was cut off for repeating itself during testing.'},
+  'Avg Thinking Chars': {d: 'Average length of the reasoning trace in characters (0 for non-thinking models).'},
+  'Political Lean 📋': {d: 'Simplified 12axes lean from −100% (left) to +100% (right).'},
+  '12axes Ideology': {d: 'Closest-matching ideology on the 12axes political test.'},
+  'govt': {d: '12axes aggregate. Higher = state authority, lower = individual liberty.'},
+  'dipl': {d: '12axes aggregate. Higher = global outlook, lower = national interests.'},
+  'econ': {d: '12axes aggregate. Higher = economic equality, lower = market freedom.'},
+  'scty': {d: '12axes aggregate. Higher = progressive values, lower = traditional values.'},
+  'Release Date': {d: 'When the model was released.'},
+  'Test Date': {d: 'When the leaderboard tested the model.'},
+  'Prompt Template': {d: 'Chat template used when testing.'},
+  'Architecture': {d: 'Model architecture class (from the model config).'},
+  'Active Parameters': {d: 'Parameters used per token, in billions. Lower than the total for mixture-of-experts models.'},
+  'Total Parameters': {d: 'Total parameter count in billions. Blank for proprietary models.'},
+  '#P': {d: 'Parameter size the leaderboard uses for the model, in billions.'},
+  'Is Foundation': {d: 'Original base model released by its developer.'},
+  'Is Finetuned': {d: 'Further trained from another model.'},
+  'Is Merged': {d: 'Combined from the weights of several models.'},
+  'Is Thinking Model': {d: 'Produces a reasoning trace before answering.'},
+  'Model Link': {d: 'Link to the model page.'},
+};
+
+function info(i) {
+  const c = S.cols[i];
+  if (INFO[c]) return INFO[c];
+  if (/^wm_.*_score$/.test(c)) return {d: 'Normalised score for the matching World Model task.', dir: 1};
+  const a = C('Political Lean 📋'), b = C('12axes Ideology');
+  if (i > a && i < b && c.includes('-')) {
+    const [l, r] = c.split('-');
+    return {d: `12axes axis: 0% = ${l}, 100% = ${r}.`};
+  }
+  return {d: ''};
+}
+const dirLabel = d => d === 1 ? 'Higher is better' : d === -1 ? 'Lower is better' : d?.target != null ? `Best near ${d.target}` : '';
+const dirPill = d => d === 1 ? '<span class="pill up">↑ higher better</span>' : d === -1 ? '<span class="pill down">↓ lower better</span>'
+  : d?.target != null ? `<span class="pill tgt">◎ best ≈ ${d.target}</span>` : '';
+
+const S = {cols: [], rows: [], types: [], stats: [], idx: {}, view: [], sortCol: -1, sortDir: -1,
+           page: 0, pageSize: 100, group: 'Overview', custom: [], visible: [], tab: 'table', pts: [], selected: -1, conds: []};
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const C = name => S.idx[name] ?? -1;
+const authorOf = r => { const n = r.raw[0], k = n.indexOf('/'); return k > 0 ? n.slice(0, k) : n; };
+const fmt = v => {
+  const a = Math.abs(v);
+  return (a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toPrecision(2))
+    .replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+};
+
+// ---------- Logos ----------
+// The publisher's Hugging Face avatar: try the organisation endpoint, then the user endpoint, then fall back to initials.
+// Vendor names that belong to an unrelated account on Hugging Face are aliased to the vendor's real account.
+const LOGO_ALIAS = {xai: 'xai-org'};
+const LOGO_KEY = 'ugi-logo-cache-v1';
+let logoCache = {};
+try {
+  const saved = JSON.parse(localStorage.getItem(LOGO_KEY) || 'null');
+  if (saved && Date.now() - saved.t < 7 * 864e5) logoCache = saved.v;
+} catch {}
+let logoSaveTimer;
+function saveLogos() {
+  clearTimeout(logoSaveTimer);
+  logoSaveTimer = setTimeout(() => { try { localStorage.setItem(LOGO_KEY, JSON.stringify({t: Date.now(), v: logoCache})); } catch {} }, 500);
+}
+const logoSrc = (a, step) =>
+  `https://huggingface.co/api/${step === 0 ? 'organizations' : 'users'}/${encodeURIComponent(LOGO_ALIAS[a] || a)}/avatar?redirect=true`;
+
+function initials(a, cls = '') {
+  const h = [...a].reduce((x, c) => (x * 31 + c.charCodeAt(0)) >>> 0, 7) % 360;
+  const t = (a.replace(/[^a-z0-9]/gi, '').slice(0, 2) || '?').toUpperCase();
+  return `<span class="logo ini ${cls}" style="--h:${h}" title="${esc(a)}">${esc(t)}</span>`;
+}
+
+function logo(a, cls = '') {
+  const c = logoCache[a];
+  if (c === null) return initials(a, cls);
+  const step = c === 'user' ? 1 : 0;
+  return `<img class="logo ${cls}" src="${logoSrc(a, step)}" data-a="${esc(a)}" data-step="${step}" alt="" title="${esc(a)}" loading="lazy" referrerpolicy="no-referrer">`;
+}
+
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset.a) return;
+  const a = img.dataset.a;
+  if (img.dataset.step === '0') { img.dataset.step = '1'; img.src = logoSrc(a, 1); return; }
+  logoCache[a] = null; saveLogos();
+  img.outerHTML = initials(a, [...img.classList].filter(c => c !== 'logo').join(' '));
+}, true);
+document.addEventListener('load', e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset.a) return;
+  const kind = img.dataset.step === '1' ? 'user' : 'org';
+  if (logoCache[img.dataset.a] !== kind) { logoCache[img.dataset.a] = kind; saveLogos(); }
+}, true);
+
+// ---------- Loading & parsing ----------
+
+function parseCSV(text) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(f); f = ''; rows.push(row); row = [];
+    } else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.length > 1 || r[0] !== '');
+}
+
+const NUM = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?%?$/i, BOOL = /^(true|false)$/i, DATE = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+const isEmpty = s => s === '' || /^(na|nan|null|none)$/i.test(s);
+
+function detect(vals) {
+  let t = 0, n = 0, b = 0, d = 0;
+  for (const v of vals) {
+    if (isEmpty(v)) continue;
+    t++;
+    if (NUM.test(v)) n++; else if (BOOL.test(v)) b++; else if (DATE.test(v)) d++;
+  }
+  if (!t) return 'text';
+  return n === t ? 'num' : b === t ? 'bool' : d === t ? 'date' : 'text';
+}
+
+function toVal(s, t) {
+  if (isEmpty(s)) return null;
+  if (t === 'num') return parseFloat(s);
+  if (t === 'bool') return /^true$/i.test(s) ? 1 : 0;
+  if (t === 'date') { const [m, d, y] = s.split('/').map(Number); return Date.UTC(y, m - 1, d); }
+  return s.toLowerCase();
+}
+
+function ingest(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const grid = parseCSV(text);
+  const cols = grid.shift().map(s => s.trim());
+  const raw = grid.map(r => cols.map((_, i) => (r[i] ?? '').trim()));
+  S.cols = cols;
+  S.idx = Object.fromEntries(cols.map((c, i) => [c, i]));
+  S.types = cols.map((_, i) => detect(raw.map(r => r[i])));
+  S.types[0] = 'text';
+  S.rows = raw.map((r, id) => ({id, raw: r, v: r.map((s, i) => toVal(s, S.types[i]))}));
+  for (const r of S.rows) { r.author = authorOf(r); r.kind = kindOf(r); }
+  S.stats = cols.map((_, i) => {
+    if (S.types[i] !== 'num') return null;
+    const a = S.rows.map(r => r.v[i]).filter(x => x != null).sort((x, y) => x - y);
+    return {min: a[0], max: a[a.length - 1], sorted: a};
+  });
+}
+
+// Same categories as the leaderboard's own "Display Models" filter
+function kindOf(r) {
+  const f = c => r.v[C(c)] === 1, noSize = r.v[C('Total Parameters')] == null;
+  return {
+    base: f('Is Foundation') && !f('Is Merged') && !noSize,
+    finetune: f('Is Finetuned') && !f('Is Merged'),
+    merge: f('Is Merged'),
+    proprietary: noSize,
+  };
+}
+const kindLabel = k => [k.base && 'Base', k.finetune && 'Finetune', k.merge && 'Merge', k.proprietary && 'Proprietary'].filter(Boolean).join(' · ');
+
+async function load() {
+  $('#reload').disabled = true;
+  setStatus('Fetching…');
+  if (!S.rows.length) showMsg('Fetching leaderboard data…');
+  try {
+    // no-store: always go to the network, never the browser's HTTP cache
+    const res = await fetch(SRC, {cache: 'no-store'});
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    const text = await res.text();
+    ingest(text);
+    if (!S.rows.length) throw new Error('The CSV has no rows');
+    buildControls();
+    showMsg(null);
+    apply();
+    setStatus(`${S.rows.length.toLocaleString()} models · ${S.cols.length} columns · ${(text.length / 1024).toFixed(0)} KB · fetched ${new Date().toLocaleTimeString()}`);
+  } catch (e) {
+    setStatus('Load failed', true);
+    if (!S.rows.length) showMsg(`<div>Couldn't load the CSV: ${esc(e.message)}</div><button onclick="load()">Try again</button>`);
+    else alert('Reload failed, still showing the previous data: ' + e.message);
+  } finally {
+    $('#reload').disabled = false;
+  }
+}
+
+function setStatus(t, err) { const el = $('#status'); el.textContent = t; el.classList.toggle('err', !!err); }
+function showMsg(html) { const m = $('#msg'); m.hidden = !html; if (html) m.innerHTML = html; }
+
+// ---------- Controls ----------
+
+function fillSelect(sel, opts, keep) {
+  const prev = keep ?? sel.value;
+  sel.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
+  if (opts.some(([v]) => v === prev)) sel.value = prev;
+}
+
+function countOpts(values, allLabel) {
+  const m = new Map();
+  for (const v of values) if (v) m.set(v, (m.get(v) || 0) + 1);
+  const keys = [...m.keys()].sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+  return [['', allLabel], ...keys.map(k => [k, `${k} (${m.get(k)})`])];
+}
+
+function buildControls() {
+  // Remember choices by column name so a reload with shifted columns keeps them
+  const keepName = i => (i >= 0 ? S.prevCols?.[i] : null);
+  const sortName = keepName(S.sortCol), sxName = keepName(+$('#sx').value), syName = keepName(+$('#sy').value);
+  const customNames = S.custom.map(keepName).filter(Boolean);
+  S.conds = S.conds.map(c => ({...c, col: C(keepName(c.col))})).filter(c => c.col >= 0);
+
+  const iA = C('Architecture'), iI = C('12axes Ideology');
+  fillSelect($('#author'), countOpts(S.rows.map(r => r.author), 'All authors'));
+  fillSelect($('#arch'), countOpts(iA < 0 ? [] : S.rows.map(r => r.raw[iA]), 'All architectures'));
+  fillSelect($('#ideo'), countOpts(iI < 0 ? [] : S.rows.map(r => r.raw[iI]), 'All ideologies'));
+
+  const groups = [...Object.keys(GROUPS), 'All', 'Custom'];
+  fillSelect($('#group'), groups.map(g => [g, g]), S.group);
+
+  const numCols = S.cols.map((c, i) => [i, c]).filter(([i]) => S.types[i] === 'num');
+  const opts = numCols.map(([i, c]) => [String(i), c]);
+  fillSelect($('#sx'), opts, String(sxName ? C(sxName) : C('Total Parameters')));
+  fillSelect($('#sy'), opts, String(syName ? C(syName) : C('UGI 🏆')));
+  if (!sxName && $('#sx').value === String(C('Total Parameters'))) $('#lx').checked = true;
+
+  S.custom = customNames.map(C).filter(i => i >= 0);
+  S.sortCol = sortName && C(sortName) >= 0 ? C(sortName) : (C('UGI 🏆') >= 0 ? C('UGI 🏆') : (numCols[0]?.[0] ?? 0));
+  S.prevCols = S.cols.slice();
+  S.selected = -1;
+  closeDetail();
+  renderConds();
+  buildGlossary();
+}
+
+function baseCols() {
+  const link = C('Model Link');
+  return S.cols.map((_, i) => i).filter(i => i !== 0 && i !== link);
+}
+
+function groupCols(g) {
+  const all = baseCols();
+  if (g === 'All') return all;
+  if (g === 'Custom') return S.custom.filter(i => all.includes(i));
+  const out = [];
+  for (const s of GROUPS[g] || []) {
+    if (s instanceof RegExp) S.cols.forEach((c, i) => { if (s.test(c)) out.push(i); });
+    else if (s.range) {
+      const a = C(s.range[0]), b = C(s.range[1]);
+      if (a >= 0 && b >= a) for (let i = a; i <= b; i++) out.push(i);
+    } else if (C(s) >= 0) out.push(C(s));
+  }
+  return [...new Set(out)].filter(i => all.includes(i));
+}
+
+function buildPicker() {
+  const q = $('#pickQ').value.trim().toLowerCase();
+  const vis = new Set(S.visible);
+  $('#pickList').innerHTML = baseCols()
+    .filter(i => !q || S.cols[i].toLowerCase().includes(q))
+    .map(i => `<label title="${esc(info(i).d)}"><input type="checkbox" value="${i}" ${vis.has(i) ? 'checked' : ''}> ${esc(S.cols[i])}</label>`).join('');
+}
+
+function setCustom(list) {
+  S.custom = list; S.group = 'Custom'; $('#group').value = 'Custom';
+  render();
+}
+
+function buildGlossary() {
+  const used = new Set();
+  let h = '';
+  const sections = [...Object.keys(GROUPS).filter(g => g !== 'Overview'), 'Other'];
+  for (const g of sections) {
+    const cols = (g === 'Other' ? baseCols() : groupCols(g)).filter(i => !used.has(i));
+    if (!cols.length) continue;
+    cols.forEach(i => used.add(i));
+    h += `<h3>${esc(g)}</h3><table><thead><tr><th>Column</th><th>Meaning</th><th></th></tr></thead><tbody>` +
+      cols.map(i => { const f = info(i); return `<tr><td>${esc(S.cols[i])}</td><td>${esc(f.d) || '<span class="dim">—</span>'}</td><td>${dirPill(f.dir)}</td></tr>`; }).join('') +
+      '</tbody></table>';
+  }
+  $('#glossary').innerHTML = h;
+}
+
+// ---------- Custom conditions ----------
+
+const OPS = {
+  num: [['ge', '≥'], ['le', '≤'], ['eq', '='], ['has', 'has a value'], ['empty', 'is empty']],
+  text: [['contains', 'contains'], ['is', 'is exactly'], ['has', 'has a value'], ['empty', 'is empty']],
+  bool: [['yes', 'is yes'], ['no', 'is no']],
+  date: [['after', 'on or after'], ['before', 'on or before'], ['has', 'has a value'], ['empty', 'is empty']],
+};
+const NO_VALUE = new Set(['has', 'empty', 'yes', 'no']);
+
+function renderConds() {
+  const colOpts = baseCols().map(i => `<option value="${i}">${esc(S.cols[i])}</option>`).join('');
+  $('#conds').innerHTML = S.conds.map((c, k) => {
+    const t = S.types[c.col], ops = OPS[t];
+    const inputType = t === 'num' ? 'number' : t === 'date' ? 'date' : 'text';
+    return `<div class="cond" data-k="${k}">
+      <select class="c-col">${colOpts.replace(`value="${c.col}"`, `value="${c.col}" selected`)}</select>
+      <select class="c-op">${ops.map(([v, l]) => `<option value="${v}"${v === c.op ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      ${NO_VALUE.has(c.op) ? '' : `<input class="c-val" type="${inputType}" step="any" value="${esc(c.val ?? '')}" placeholder="value">`}
+      <button class="c-del" title="Remove condition">✕</button>
+      <span class="hint">${esc(dirLabel(info(c.col).dir))}</span>
+    </div>`;
+  }).join('');
+}
+
+function condPass(r, c) {
+  const v = r.v[c.col];
+  switch (c.op) {
+    case 'has': return v != null;
+    case 'empty': return v == null;
+    case 'yes': return v === 1;
+    case 'no': return v === 0;
+  }
+  const s = (c.val ?? '').trim();
+  if (s === '') return true; // incomplete condition: ignore it
+  switch (c.op) {
+    case 'ge': return v != null && v >= parseFloat(s);
+    case 'le': return v != null && v <= parseFloat(s);
+    case 'eq': return v != null && v === parseFloat(s);
+    case 'contains': return v != null && v.includes(s.toLowerCase());
+    case 'is': return v != null && v === s.toLowerCase();
+    case 'after': return v != null && v >= Date.parse(s);
+    case 'before': return v != null && v <= Date.parse(s);
+  }
+  return true;
+}
+
+// ---------- Filtering & sorting ----------
+
+const numIn = id => { const x = parseFloat($(id).value); return isNaN(x) ? null : x; };
+
+function readFilters() {
+  return {
+    terms: $('#q').value.trim().toLowerCase().split(/\s+/).filter(Boolean),
+    types: $$('#types input').filter(x => !x.checked).map(x => x.value),
+    think: $('#think').value, author: $('#author').value, arch: $('#arch').value, ideo: $('#ideo').value,
+    pmin: numIn('#pmin'), pmax: numIn('#pmax'), lmin: numIn('#lmin'), lmax: numIn('#lmax'),
+    dfrom: $('#dfrom').value ? Date.parse($('#dfrom').value) : null, dto: $('#dto').value ? Date.parse($('#dto').value) : null,
+    mins: [['UGI 🏆', numIn('#mUGI')], ['W/10 👍', numIn('#mW10')], ['NatInt 💡', numIn('#mNat')], ['Writing ✍️', numIn('#mWri')]]
+      .filter(([c, x]) => x != null && C(c) >= 0).map(([c, x]) => [C(c), x]),
+  };
+}
+
+function activeFilterCount(f) {
+  return [f.types.length, f.think !== 'all', f.author, f.arch, f.ideo, f.pmin != null || f.pmax != null,
+          f.lmin != null || f.lmax != null, f.dfrom != null || f.dto != null, ...f.mins]
+    .filter(Boolean).length + S.conds.length;
+}
+
+function apply() {
+  const f = readFilters();
+  const iA = C('Architecture'), iT = C('Is Thinking Model'), iP = C('Total Parameters'), iI = C('12axes Ideology'),
+        iL = C('Political Lean 📋'), iR = C('Release Date');
+
+  S.view = S.rows.filter(r => {
+    if (f.terms.length) {
+      const hay = (r.raw[0] + ' ' + (iA >= 0 ? r.raw[iA] : '')).toLowerCase();
+      if (!f.terms.every(t => hay.includes(t))) return false;
+    }
+    // Like the leaderboard: hide a model if it falls into any unticked type
+    if (f.types.some(t => r.kind[t])) return false;
+    if (f.think !== 'all' && iT >= 0 && r.v[iT] !== (f.think === 'yes' ? 1 : 0)) return false;
+    if (f.author && r.author !== f.author) return false;
+    if (f.arch && r.raw[iA] !== f.arch) return false;
+    if (f.ideo && r.raw[iI] !== f.ideo) return false;
+    if (f.pmin != null && !(r.v[iP] >= f.pmin)) return false;
+    if (f.pmax != null && !(r.v[iP] <= f.pmax)) return false;
+    if (f.lmin != null && !(r.v[iL] >= f.lmin)) return false;
+    if (f.lmax != null && !(r.v[iL] <= f.lmax)) return false;
+    if (f.dfrom != null && !(r.v[iR] >= f.dfrom)) return false;
+    if (f.dto != null && !(r.v[iR] <= f.dto)) return false;
+    for (const [i, x] of f.mins) if (!(r.v[i] >= x)) return false;
+    for (const c of S.conds) if (!condPass(r, c)) return false;
+    return true;
+  });
+  sortView();
+  S.page = 0;
+  const n = activeFilterCount(f);
+  $('#fBtn').textContent = n ? `Filters (${n})` : 'Filters';
+  $('#count').textContent = `${S.view.length.toLocaleString()} of ${S.rows.length.toLocaleString()} models`;
+  render();
+}
+
+function sortView() {
+  const i = S.sortCol, d = S.sortDir;
+  S.view.sort((a, b) => {
+    const x = a.v[i], y = b.v[i];
+    if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1; // empties always last
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * d;
+  });
+}
+
+// ---------- Table ----------
+
+function render() {
+  if (!S.rows.length) return;
+  S.visible = groupCols(S.group);
+  if (S.tab === 'table') renderTable(); else renderScatter();
+}
+
+function th(i, cls = '') {
+  const s = S.sortCol === i, f = info(i);
+  const arrow = s ? (S.sortDir < 0 ? ' ▼' : ' ▲') : '';
+  const tip = [S.cols[i], f.d, dirLabel(f.dir)].filter(Boolean).join('\n');
+  return `<th class="${cls}${S.types[i] === 'num' ? ' n' : ''}${s ? ' sorted' : ''}" data-col="${i}" title="${esc(tip)}">${esc(S.cols[i])}${arrow}</th>`;
+}
+
+function nameCell(r) {
+  const name = r.raw[0], link = C('Model Link') >= 0 ? r.raw[C('Model Link')] : '';
+  const k = name.indexOf('/');
+  const label = k > 0 ? `<span class="au">${esc(name.slice(0, k + 1))}</span>${esc(name.slice(k + 1))}` : esc(name);
+  const ext = /^https?:\/\//.test(link) ? `<a class="ext" href="${esc(link)}" target="_blank" rel="noopener" title="Open model page">↗</a>` : '';
+  return logo(r.author) + label + ext;
+}
+
+function td(r, i) {
+  const raw = r.raw[i], v = r.v[i], t = S.types[i];
+  if (t === 'num' && v != null) {
+    const st = S.stats[i];
+    const p = st.max > st.min ? (v - st.min) / (st.max - st.min) * 100 : 0;
+    return `<td class="n bar" style="--p:${p.toFixed(1)}%">${esc(raw)}</td>`;
+  }
+  if (t === 'bool') return `<td class="b">${v === 1 ? '✓' : v === 0 ? '<span class="dim">–</span>' : ''}</td>`;
+  return `<td${t === 'num' ? ' class="n"' : ''}>${esc(raw)}</td>`;
+}
+
+function renderTable() {
+  const cols = S.visible, n = S.view.length;
+  const ps = S.pageSize || n || 1;
+  const pages = Math.max(1, Math.ceil(n / ps));
+  S.page = Math.min(S.page, pages - 1);
+  const start = S.page * ps, slice = S.view.slice(start, start + ps);
+
+  let h = `<thead><tr><th class="rank">#</th>${th(0, 'name')}${cols.map(i => th(i)).join('')}</tr></thead><tbody>`;
+  for (let k = 0; k < slice.length; k++) {
+    const r = slice[k];
+    h += `<tr data-id="${r.id}"${r.id === S.selected ? ' class="sel"' : ''}><td class="rank">${start + k + 1}</td><td class="name">${nameCell(r)}</td>${cols.map(i => td(r, i)).join('')}</tr>`;
+  }
+  if (!slice.length) h += `<tr><td class="rank"></td><td class="name dim" colspan="${cols.length + 1}">No models match these filters.</td></tr>`;
+  $('#tbl').innerHTML = h + '</tbody>';
+
+  $('#pager').innerHTML = n ? `<span>${(start + 1).toLocaleString()}–${Math.min(start + ps, n).toLocaleString()} of ${n.toLocaleString()}</span>
+    <button data-pg="-1" ${S.page === 0 ? 'disabled' : ''}>‹ Prev</button>
+    <button data-pg="1" ${S.page >= pages - 1 ? 'disabled' : ''}>Next ›</button>` : '';
+}
+
+// ---------- Scatter ----------
+
+function niceTicks(a, b, n = 6) {
+  if (a === b) { a -= 1; b += 1; }
+  const raw = (b - a) / n, mag = 10 ** Math.floor(Math.log10(raw)), e = raw / mag;
+  const step = (e >= 7.5 ? 10 : e >= 3.5 ? 5 : e >= 1.5 ? 2 : 1) * mag;
+  const out = [];
+  for (let v = Math.ceil(a / step) * step; v <= b + step * 1e-6; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+
+function logTicks(a, b) {
+  const out = [];
+  for (let e = Math.floor(a); e <= Math.ceil(b); e++)
+    for (const m of [1, 2, 5]) { const t = e + Math.log10(m); if (t >= a - 1e-9 && t <= b + 1e-9) out.push(t); }
+  return out.length > 10 ? out.filter(t => Math.abs(t - Math.round(t)) < 1e-9) : out;
+}
+
+function renderScatter() {
+  const cv = $('#cv'), box = $('#scatterView');
+  const W = box.clientWidth, H = box.clientHeight, dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const xi = +$('#sx').value, yi = +$('#sy').value, lx = $('#lx').checked, ly = $('#ly').checked;
+  const tf = log => v => v == null ? null : log ? (v > 0 ? Math.log10(v) : null) : v;
+  const tx = tf(lx), ty = tf(ly), iT = C('Is Thinking Model');
+
+  const pts = [];
+  for (const r of S.view) {
+    const x = tx(r.v[xi]), y = ty(r.v[yi]);
+    if (x != null && y != null && isFinite(x) && isFinite(y)) pts.push({r, x, y, t: iT >= 0 && r.v[iT] === 1});
+  }
+  $('#pcount').textContent = `${pts.length.toLocaleString()} plotted`;
+  S.pts = [];
+  g.font = '12px system-ui, sans-serif';
+  if (!pts.length) {
+    g.fillStyle = col('--muted'); g.textAlign = 'center';
+    g.fillText('No models have values for both axes with these filters.', W / 2, H / 2);
+    return;
+  }
+
+  const m = {l: 64, r: 20, t: 18, b: 48};
+  let x0 = Math.min(...pts.map(p => p.x)), x1 = Math.max(...pts.map(p => p.x));
+  let y0 = Math.min(...pts.map(p => p.y)), y1 = Math.max(...pts.map(p => p.y));
+  if (x0 === x1) { x0 -= 1; x1 += 1; } if (y0 === y1) { y0 -= 1; y1 += 1; }
+  const px = (x1 - x0) * .04, py = (y1 - y0) * .05;
+  x0 -= px; x1 += px; y0 -= py; y1 += py;
+  const sx = v => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r);
+  const sy = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+
+  const xt = lx ? logTicks(x0, x1) : niceTicks(x0, x1, Math.max(3, Math.floor(W / 110)));
+  const yt = ly ? logTicks(y0, y1) : niceTicks(y0, y1, Math.max(3, Math.floor(H / 70)));
+  const lab = (v, log, pct) => fmt(log ? 10 ** v : v) + (pct ? '%' : '');
+  const pctX = S.rows.some(r => r.raw[xi].endsWith('%')), pctY = S.rows.some(r => r.raw[yi].endsWith('%'));
+
+  g.strokeStyle = col('--line'); g.lineWidth = 1; g.fillStyle = col('--muted');
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (const t of xt) {
+    const X = Math.round(sx(t)) + .5;
+    g.beginPath(); g.moveTo(X, m.t); g.lineTo(X, H - m.b); g.stroke();
+    g.fillText(lab(t, lx, pctX), X, H - m.b + 6);
+  }
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (const t of yt) {
+    const Y = Math.round(sy(t)) + .5;
+    g.beginPath(); g.moveTo(m.l, Y); g.lineTo(W - m.r, Y); g.stroke();
+    g.fillText(lab(t, ly, pctY), m.l - 8, Y);
+  }
+  const axisName = (i, log) => S.cols[i] + (log ? ' (log)' : '') + (dirLabel(info(i).dir) ? ` · ${dirLabel(info(i).dir).toLowerCase()}` : '');
+  g.fillStyle = col('--ink'); g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.fillText(axisName(xi, lx), m.l + (W - m.l - m.r) / 2, H - 10);
+  g.save(); g.translate(16, m.t + (H - m.t - m.b) / 2); g.rotate(-Math.PI / 2);
+  g.fillText(axisName(yi, ly), 0, 0); g.restore();
+
+  const c1 = col('--s1'), c2 = col('--s2');
+  g.globalAlpha = .7;
+  for (const p of pts) {
+    p.px = sx(p.x); p.py = sy(p.y);
+    g.fillStyle = p.t ? c2 : c1;
+    g.beginPath(); g.arc(p.px, p.py, p.r.id === S.selected ? 6 : 3.5, 0, Math.PI * 2); g.fill();
+  }
+  g.globalAlpha = 1;
+  const sel = pts.find(p => p.r.id === S.selected);
+  if (sel) { g.strokeStyle = col('--ink'); g.lineWidth = 2; g.beginPath(); g.arc(sel.px, sel.py, 7, 0, Math.PI * 2); g.stroke(); }
+  S.pts = pts;
+}
+
+function nearest(e) {
+  const rect = $('#cv').getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top;
+  let best = null, bd = 100; // within 10px
+  for (const p of S.pts) { const d = (p.px - x) ** 2 + (p.py - y) ** 2; if (d < bd) { bd = d; best = p; } }
+  return {best, x, y};
+}
+
+// ---------- Detail drawer ----------
+
+function bound(a, v, strict) { // first index with a[i] > v (strict) or a[i] >= v
+  let lo = 0, hi = a.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (strict ? a[mid] <= v : a[mid] < v) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+
+// Rank 1 = best where the column has a better direction, otherwise the highest value
+function rankOf(i, v) {
+  const a = S.stats[i].sorted, n = a.length, d = info(i).dir;
+  if (d === -1) return {rank: bound(a, v, false) + 1, n, how: 'lowest first'};
+  if (d?.target != null) {
+    const dv = Math.abs(v - d.target);
+    return {rank: a.filter(x => Math.abs(x - d.target) < dv).length + 1, n, how: `closest to ${d.target} first`};
+  }
+  return {rank: n - bound(a, v, true) + 1, n, how: 'highest first'};
+}
+
+function kvRow(r, i) {
+  const raw = r.raw[i], v = r.v[i], t = S.types[i], f = info(i);
+  let right = '', meter = '';
+  if (t === 'num' && v != null) {
+    const st = S.stats[i], {rank, n, how} = rankOf(i, v);
+    const p = st.max > st.min ? (v - st.min) / (st.max - st.min) * 100 : 0;
+    right = `<span title="Rank, ${how}">#${rank.toLocaleString()} / ${n.toLocaleString()}</span>`;
+    meter = `<div class="meter" title="Position between the lowest and highest value"><i style="width:${p.toFixed(1)}%"></i></div>`;
+  }
+  const shown = t === 'bool' ? (v === 1 ? 'Yes' : v === 0 ? 'No' : '') : raw;
+  const desc = [f.d, dirLabel(f.dir)].filter(Boolean).join(' ');
+  return `<div class="kv"><div class="k"><b title="${esc(S.cols[i])}">${esc(S.cols[i])}</b>${desc ? `<small>${esc(desc)}</small>` : ''}</div>
+    <div class="v">${esc(shown) || '<span class="dim">—</span>'}${meter}</div><div class="r">${right}</div></div>`;
+}
+
+function openDetail(id) {
+  const r = S.rows[id];
+  if (!r) return;
+  S.selected = id;
+  $('#dLogo').innerHTML = logo(r.author, 'lg');
+  $('#dName').textContent = r.raw[0];
+  const iT = C('Is Thinking Model');
+  $('#dMeta').textContent = [kindLabel(r.kind), iT >= 0 && r.v[iT] === 1 ? 'Thinking' : '', r.raw[C('Architecture')]].filter(Boolean).join(' · ');
+  const link = C('Model Link') >= 0 ? r.raw[C('Model Link')] : '';
+  $('#dLink').hidden = !/^https?:\/\//.test(link);
+  $('#dLink').href = link;
+
+  const used = new Set();
+  let h = '<p class="dim" style="font-size:12px;margin:10px 0 0">Rank #1 is the best value for columns that have a better direction, and the highest value otherwise. The bar shows where the value sits between the lowest and highest model.</p>';
+  for (const g of Object.keys(GROUPS).filter(g => g !== 'Overview')) {
+    const cols = groupCols(g).filter(i => !used.has(i));
+    if (!cols.length) continue;
+    cols.forEach(i => used.add(i));
+    h += `<h3>${esc(g)}</h3>` + cols.map(i => kvRow(r, i)).join('');
+  }
+  const rest = baseCols().filter(i => !used.has(i));
+  if (rest.length) h += '<h3>Other</h3>' + rest.map(i => kvRow(r, i)).join('');
+  $('#dBody').innerHTML = h;
+  $('#dBody').scrollTop = 0;
+  $('#detail').classList.add('open');
+  $('#detail').setAttribute('aria-hidden', 'false');
+  $$('#tbl tr.sel').forEach(tr => tr.classList.remove('sel'));
+  document.querySelector(`#tbl tr[data-id="${id}"]`)?.classList.add('sel');
+  if (S.tab === 'scatter') renderScatter();
+}
+
+function closeDetail() {
+  $('#detail').classList.remove('open');
+  $('#detail').setAttribute('aria-hidden', 'true');
+}
+
+// ---------- Export ----------
+
+function exportCSV() {
+  const q = s => /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  const lines = [S.cols.map(q).join(','), ...S.view.map(r => r.raw.map(q).join(','))];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], {type: 'text/csv'}));
+  a.download = 'ugi-leaderboard-filtered.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- Events ----------
+
+let fTimer;
+const applySoon = (ms = 150) => { clearTimeout(fTimer); fTimer = setTimeout(apply, ms); };
+$('#q').addEventListener('input', () => applySoon(120));
+$('#filters').addEventListener('change', e => { if (!e.target.closest('#conds')) apply(); });
+$('#filters').addEventListener('input', e => { if (e.target.type === 'number' && !e.target.closest('#conds')) applySoon(250); });
+$('#clear').onclick = () => {
+  $('#q').value = '';
+  $$('#types input').forEach(x => { x.checked = true; });
+  $$('#filters select:not(#conds select)').forEach(s => { s.selectedIndex = 0; });
+  $$('#filters input:not([type=checkbox]):not(#conds input)').forEach(x => { x.value = ''; });
+  S.conds = []; renderConds();
+  apply();
+};
+$('#fBtn').onclick = () => {
+  const p = $('#filters'); p.hidden = !p.hidden;
+  $('#fBtn').classList.toggle('on', !p.hidden);
+  if (S.tab === 'scatter') renderScatter();
+};
+if (window.matchMedia('(max-width:700px)').matches) { $('#filters').hidden = true; $('#fBtn').classList.remove('on'); }
+
+$('#addCond').onclick = () => {
+  const i = C('Avg Thinking Chars') >= 0 ? C('Avg Thinking Chars') : baseCols()[0];
+  S.conds.push({col: i, op: OPS[S.types[i]][0][0], val: ''});
+  renderConds(); apply();
+  $('#conds .cond:last-child .c-col')?.focus();
+};
+$('#conds').addEventListener('change', e => {
+  const row = e.target.closest('.cond'); if (!row) return;
+  const c = S.conds[+row.dataset.k];
+  if (e.target.classList.contains('c-col')) {
+    c.col = +e.target.value; c.op = OPS[S.types[c.col]][0][0]; c.val = '';
+    renderConds();
+  } else if (e.target.classList.contains('c-op')) {
+    c.op = e.target.value;
+    renderConds();
+  }
+  apply();
+});
+$('#conds').addEventListener('input', e => {
+  const row = e.target.closest('.cond');
+  if (!row || !e.target.classList.contains('c-val')) return;
+  S.conds[+row.dataset.k].val = e.target.value;
+  applySoon(250);
+});
+$('#conds').addEventListener('click', e => {
+  const b = e.target.closest('.c-del'); if (!b) return;
+  S.conds.splice(+b.closest('.cond').dataset.k, 1);
+  renderConds(); apply();
+});
+
+$('#reload').onclick = load;
+$('#srcLink').href = SRC; $('#srcLink').textContent = 'the Space\'s ugi-leaderboard-data.csv';
+$('#aboutBtn').onclick = () => $('#about').showModal();
+$('#abClose').onclick = () => $('#about').close();
+$('#about').addEventListener('click', e => { if (e.target === $('#about')) $('#about').close(); });
+
+$$('.seg button').forEach(b => b.onclick = () => {
+  S.tab = b.dataset.tab;
+  $$('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  $('#tableView').hidden = $('#vb-table').hidden = S.tab !== 'table';
+  $('#scatterView').hidden = $('#vb-scatter').hidden = S.tab !== 'scatter';
+  render();
+});
+
+$('#group').onchange = e => { S.group = e.target.value; if (S.group === 'Custom' && !S.custom.length) S.custom = S.visible.slice(); render(); };
+$('#ps').onchange = e => { S.pageSize = +e.target.value; S.page = 0; render(); };
+$('#export').onclick = exportCSV;
+
+$('#pickBtn').onclick = e => { e.stopPropagation(); const p = $('#pick'); p.hidden = !p.hidden; if (!p.hidden) { buildPicker(); $('#pickQ').focus(); } };
+$('#pick').onclick = e => e.stopPropagation();
+$('#pickQ').oninput = buildPicker;
+$('#pickList').onchange = e => {
+  const i = +e.target.value, cur = S.visible.slice();
+  setCustom(e.target.checked ? [...cur, i] : cur.filter(x => x !== i));
+};
+$('#pickAll').onclick = () => { setCustom(baseCols()); buildPicker(); };
+$('#pickNone').onclick = () => { setCustom([]); buildPicker(); };
+document.addEventListener('click', () => { $('#pick').hidden = true; });
+
+$('#tbl').addEventListener('click', e => {
+  const h = e.target.closest('th[data-col]');
+  if (h) {
+    const i = +h.dataset.col;
+    if (S.sortCol === i) S.sortDir *= -1;
+    else { S.sortCol = i; S.sortDir = S.types[i] === 'text' || info(i).dir === -1 ? 1 : -1; }
+    sortView(); render();
+    return;
+  }
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr[data-id]');
+  if (tr) openDetail(+tr.dataset.id);
+});
+$('#pager').addEventListener('click', e => {
+  const b = e.target.closest('button[data-pg]');
+  if (!b) return;
+  S.page += +b.dataset.pg; render();
+  $('#tableView').scrollTop = 0;
+});
+
+['#sx', '#sy', '#lx', '#ly'].forEach(s => $(s).addEventListener('change', render));
+$('#cv').addEventListener('mousemove', e => {
+  const {best, x, y} = nearest(e), tip = $('#tip');
+  $('#cv').style.cursor = best ? 'pointer' : 'default';
+  if (!best) { tip.hidden = true; return; }
+  const xi = +$('#sx').value, yi = +$('#sy').value;
+  tip.innerHTML = `<b>${logo(best.r.author, 'sm')}${esc(best.r.raw[0])}</b>${esc(S.cols[xi])}: ${esc(best.r.raw[xi])}<br>${esc(S.cols[yi])}: ${esc(best.r.raw[yi])}`;
+  tip.hidden = false;
+  const box = $('#scatterView'), tw = tip.offsetWidth, thh = tip.offsetHeight;
+  tip.style.left = Math.min(x + 14, box.clientWidth - tw - 8) + 'px';
+  tip.style.top = (y + 14 + thh > box.clientHeight ? y - thh - 10 : y + 14) + 'px';
+});
+$('#cv').addEventListener('mouseleave', () => { $('#tip').hidden = true; });
+$('#cv').addEventListener('click', e => { const {best} = nearest(e); if (best) openDetail(best.r.id); });
+
+$('#dClose').onclick = closeDetail;
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDetail(); $('#pick').hidden = true; }
+  if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); $('#q').focus(); }
+});
+let rsTimer;
+window.addEventListener('resize', () => { clearTimeout(rsTimer); rsTimer = setTimeout(() => { if (S.tab === 'scatter') renderScatter(); }, 100); });
+
+load();
+</script>
+</body>
+</html>
